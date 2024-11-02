@@ -1,0 +1,24 @@
+{
+    "Dependancies": 
+    [
+        "MBLisp"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language":"C++",
+    "Standard":"C++17",
+    "Targets": 
+    {
+        "MBTML": 
+        {
+            "OutputName":"MBTML",
+            "Sources": 
+            [
+                "/TMLMain.cpp"
+            ],
+            "TargetType":"Executable"
+        }
+    }
+}
