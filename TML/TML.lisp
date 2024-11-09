@@ -6,7 +6,7 @@
     (attributes (dict))
     (children (list))
     (state-changed true)
-    (input null)
+    (input-handler null)
 
     (set-children (children)
         (setl :children this children)
@@ -19,12 +19,18 @@
         (any (map updated :children this))
     )
     (handle-input (input)
+        (if (not (eq :input-handler this null))
+            (return (handle-input :input-handler this input))
+        )
         false
     )
     (set-focus ()
         false
     )
     (get-cursor-info ()
+        (if (not (eq :input-handler this null))
+            (return (get-cursor-info :input-handler this))
+        )
         (cursor-info 0 0)
     )
     (prefered-dims (dimensions)
@@ -73,6 +79,7 @@
 (defclass Header ()
     (name "")
     (attributes (dict))
+    (handles-input false)
 )
 
 (defclass Element ()
@@ -100,7 +107,7 @@
         (setl :children this children)
     )
 )
-(setl idf-regex (regex "\\w"))
+(setl idf-regex (regex "\\w|@"))
 (defun parse-idf (stream)
     (setl ret "")
     (while (not (eof stream))
@@ -159,6 +166,14 @@
             (break)
         )
         (set :name atr (parse-idf stream))
+        (if (eq (len :name atr) 0)
+            (error (+ "Invalid attribute character: " (peek-byte stream)))
+        )
+        (if (eq :name atr "@input")
+            (setl :handles-input ret true)
+            (skip-whitespace stream)
+            (continue)
+        )
         (skip-whitespace stream)
         (if (eq (peek-byte stream) "=")
             (read-byte stream)
@@ -219,6 +234,7 @@
     (setl atrs :attributes :header el)
     (setl attributes-sym (gensym))
     (setl child-sym (gensym))
+    (setl input-handler :handles-input :header el)
     `(progn 
         (setl ,attributes-sym 
             (make-dict ,@(map _(cond :is-parameter-value ;_ atrs `(,_ (index current-params ,_) ) `(,_ ,:value ;_ atrs )) (keys atrs)  )))
@@ -229,7 +245,14 @@
         ,(if (eq (type el) Text)
             `(append ,(get-dynamic child-list) ,el)
           else
-            `(append ,(get-dynamic child-list) (,(symbol :name :header el) ,attributes-sym ,child-sym  ))
+            `(append 
+                ,(get-dynamic child-list) 
+                ,(if (not input-handler)
+                    `(,(symbol :name :header el) ,attributes-sym ,child-sym  )
+                  else
+                    `(set :input-handler this (,(symbol :name :header el) ,attributes-sym ,child-sym  ))
+                 )
+             )
         )
      )
 )
