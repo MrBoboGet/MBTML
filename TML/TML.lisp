@@ -298,6 +298,9 @@
               (setl :children this ,(get-dynamic child-list))
             )
         )
+        (constructor ()
+            null
+        )
     ))
 )
 

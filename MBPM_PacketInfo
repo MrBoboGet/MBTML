@@ -1,6 +1,6 @@
 {
-	"PacketName":"MBTML",
+	"PacketName":"MBPerl",
+    "PacketType":"MBLisp",
 	"Attributes":[],
-	"ExportedExecutableTargets":[],
-	"Dependancies":["MBLisp"]
+    "Dependancies":[]
 }
