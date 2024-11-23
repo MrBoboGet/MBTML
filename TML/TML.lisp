@@ -20,7 +20,9 @@
         (any (map updated :children this))
     )
     (handle-input (input)
+        #(print "Inputting")
         (if (not (eq :input this null))
+            #(print "not null")
             (return (handle-input :input this input))
         )
         false
@@ -293,6 +295,26 @@
     (setl class-def 
     `(defclass ,:name :header el (,TMLElement)
         ,@(map _(list :0 _ :1 _) extra-fields)
+        (constructor ()
+            (setl current-params (dict))
+            (setl children (list))
+            ,@(map (lambda (atr) 
+                (if :mandatory ;atr atrs
+                    `(if (not (in ,atr current-params ))
+                        (error ,(+ "Missing mandatory attribute for " (str :name :header el) " '" atr "'"))
+                     )
+                 else
+                    `(if (not (in ,atr current-params ))
+                        false
+                        (set (index current-params ,atr) ,:value ;atr atrs)
+                     )
+                )
+                ) (keys :attributes :header el))
+            (let ((  (,(embed-dynamic child-list)) (list)))
+              ,@(map convert-child :children el)
+              (setl :children this ,(get-dynamic child-list))
+            )
+        )
         (constructor (params children)
             (setl current-params (copy params))
             (setl children (list))
@@ -312,9 +334,6 @@
               ,@(map convert-child :children el)
               (setl :children this ,(get-dynamic child-list))
             )
-        )
-        (constructor ()
-            null
         )
     ))
 )
