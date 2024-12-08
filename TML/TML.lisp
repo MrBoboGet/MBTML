@@ -3,9 +3,36 @@
 (import lsp lsp)
 #Base for all lisp defined elements, 
 #default working as a stacker
+
+(defclass ElementBase ()
+    (set-children (children)
+        null
+    )
+    (set-focus (value)
+        null
+    )
+    (get-cursor-info (children)
+        (cursor-info 0 0)
+    )
+    (prefered-dims (dimensions)
+        (dims 1 1)
+    )
+    (updated ()
+        false
+    )
+    (handle-input (input)
+        null
+    )
+    (write (view redraw)
+        null
+    )
+)
+
+
 (defclass TMLElement ()
     (attributes (dict))
     (children (list))
+    (expr-children (list))
     (state-changed true)
     (input null)
 
@@ -27,7 +54,7 @@
         )
         false
     )
-    (set-focus ()
+    (set-focus (value)
         false
     )
     (get-cursor-info ()
@@ -68,6 +95,9 @@
 
 
     (update ()
+        (doit child :expr-children this
+            (set-value child (:expr child))
+        )
         (setl :state-changed this true)
     )
 )
@@ -106,6 +136,34 @@
         (set :name :header this (symbol "raw-text"))
     )
 )
+
+(defclass ExprElement (ElementBase Element)
+    (content "")
+    (is-updated true)
+    (expr null)
+    (updated ()
+        :is-updated this
+    )
+    (write (view redraw)
+        (write view :content this)
+        (set :is-updated this false)
+    )
+    (prefered-dims (dimensions)
+        (dims (min (width dimensions) (len :content this)) 1)
+    )
+    (set-value (new-value)
+        (if (applicable str new-value)
+            (set :content this (str new-value))
+          else
+            (set :content this (+ "#'" (str (name (type new-value)))))
+        )
+        (setl :is-updated this true)
+    )
+    (constructor (expr)
+        (set :expr this expr)
+    )
+)
+
 (defclass div (TMLElement)
     (constructor (props children)
         (setl :children this children)
@@ -158,13 +216,21 @@
             (append :children ret (parse-element stream))
           else (eq (peek-byte stream) "@")
             (read-byte stream)
-            (setl idf (parse-idf stream))
-            (skip-whitespace stream)
-            (if (eq (peek-byte stream) "=")
-                (read-byte stream)
-                (append extra-fields (list idf (read-term stream)))
-             else 
-                (error (+ "Invalid character after extra field declaration: " (peek-byte stream)))
+            (if (eq (peek-byte stream) "(")
+                (setl new-expr (read-term stream))
+                (if (&& (eq (type new-expr) list_t) (eq (len new-expr) 1))
+                    (setl new-expr :0 new-expr)
+                )
+                (append :children ret (ExprElement new-expr))
+            else
+                (setl idf (parse-idf stream))
+                (skip-whitespace stream)
+                (if (eq (peek-byte stream) "=")
+                    (read-byte stream)
+                    (append extra-fields (list idf (read-term stream)))
+                 else 
+                    (error (+ "Invalid character after extra field declaration: " (peek-byte stream)))
+                )
             )
         )
     )
@@ -269,12 +335,19 @@
     `(progn 
         (setl ,attributes-sym 
             (make-dict ,@(map _(cond :is-parameter-value ;_ atrs `(,_ (index current-params ,_) ) `(,_ ,:value ;_ atrs )) (keys atrs)  )))
-        (let (( (,(embed-dynamic child-list)) (list)))
+        (let (  ((,(embed-dynamic child-list)) (list)) )
             ,@(map convert-child :children el)
             (setl ,child-sym ,(get-dynamic child-list))
         )
         ,(if (eq (type el) Text)
             `(append ,(get-dynamic child-list) ,el)
+           else if (eq (type el) ExprElement)
+             (setl expr-sym (gensym))
+             `(progn 
+                (setl ,expr-sym (,ExprElement (lambda () ,:expr el)))
+                (append ,(get-dynamic child-list) ,expr-sym)
+                (append ,(get-dynamic expr-child-list) ,expr-sym)
+              )
           else
             `(append 
                 ,(get-dynamic child-list) 
@@ -288,6 +361,7 @@
      )
 )
 (set child-list (dynamic (list )))
+(set expr-child-list (dynamic (list )))
 (defmethod convert-element ((el Element))
     (setl ret false)
     (setl atrs :attributes :header el)
@@ -310,10 +384,12 @@
                      )
                 )
                 ) (keys :attributes :header el))
-            (let ((  (,(embed-dynamic child-list)) (list)))
+            (let ((  (,(embed-dynamic child-list)) (list))  ((,(embed-dynamic expr-child-list)) (list)))
               ,@(map convert-child :children el)
               (setl :children this ,(get-dynamic child-list))
+              (setl :expr-children this ,(get-dynamic expr-child-list))
             )
+            (update this)
         )
         (constructor (params children)
             (setl current-params (copy params))
@@ -330,10 +406,12 @@
                      )
                 )
                 ) (keys :attributes :header el))
-            (let ((  (,(embed-dynamic child-list)) (list)))
+            (let ((  (,(embed-dynamic child-list)) (list))  ((,(embed-dynamic expr-child-list)) (list)))
               ,@(map convert-child :children el)
               (setl :children this ,(get-dynamic child-list))
+              (setl :expr-children this ,(get-dynamic expr-child-list))
             )
+            (update this)
         )
     ))
 )
