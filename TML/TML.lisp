@@ -5,6 +5,11 @@
 #default working as a stacker
 
 (defclass ElementBase ()
+    (parent (new-updated-info))
+
+    (set-parent-info (new-parent)
+        (set-parent-info :parent this new-parent)
+    )
     (set-children (children)
         null
     )
@@ -18,7 +23,7 @@
         (dims 1 1)
     )
     (updated ()
-        false
+        (updated :parent this)
     )
     (handle-input (input)
         null
@@ -26,25 +31,26 @@
     (write (view redraw)
         null
     )
+    (set-updated (is-updated)
+        (set-updated :parent this is-updated)
+    )
 )
 
+(set-parent-info (ElementBase) (new-updated-info))
 
-(defclass TMLElement ()
+
+(defclass TMLElement (ElementBase)
     (attributes (dict))
     (children (list))
     (expr-children (list))
-    (state-changed true)
     (input null)
 
     (set-children (children)
         (setl :children this children)
+        (map _(set-parent-info _ :parent this) :children this)
     )
     (constructor (children)
         (setl :children this children)
-    )
-    (updated ()
-        (if :state-changed this  (return true))
-        (any (map updated :children this))
     )
     (handle-input (input)
         #(print "Inputting")
@@ -52,9 +58,6 @@
             #(print "not null")
             (return (handle-input :input this input))
         )
-        false
-    )
-    (set-focus (value)
         false
     )
     (get-cursor-info ()
@@ -75,7 +78,7 @@
     )
 
     (write (view redraw)
-        (setl :state-changed this false)
+        (set-updated this false)
         (setl view-dims (dims view))
         (setl height-offset 0)
         (setl current-offset (+ (len :children this) (minus 0 1)))
@@ -98,7 +101,7 @@
         (doit child :expr-children this
             (set-value child (:expr child))
         )
-        (setl :state-changed this true)
+        (set-updated this false)
     )
 )
 
@@ -122,9 +125,6 @@
 )
 (defclass Text (Element TMLElement)
     (content "")
-    (updated ()
-        false
-    )
     (write (view redraw)
         (write view :content this)
     )
@@ -139,14 +139,10 @@
 
 (defclass ExprElement (ElementBase Element)
     (content "")
-    (is-updated true)
     (expr null)
-    (updated ()
-        :is-updated this
-    )
     (write (view redraw)
         (write view :content this)
-        (set :is-updated this false)
+        (set-updated this false)
     )
     (prefered-dims (dimensions)
         (dims (min (width dimensions) (len :content this)) 1)
@@ -157,7 +153,7 @@
           else
             (set :content this (+ "#'" (str (name (type new-value)))))
         )
-        (setl :is-updated this true)
+        (set-updated this true)
     )
     (constructor (expr)
         (set :expr this expr)
