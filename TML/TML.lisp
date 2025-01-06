@@ -51,7 +51,6 @@
         (setl :children this children)
     )
     (handle-input (input)
-        #(print "Inputting")
         (if (not (eq :input this null))
             #(print "not null")
             (return (handle-input :input this input))
@@ -121,19 +120,19 @@
     (children (list))
     (extra-fields (list))
 )
-(defclass Text (Element TMLElement)
-    (content "")
-    (write (view redraw)
-        (write view :content this)
-    )
-    (prefered-dims (dimensions)
-        (dims (min (width dimensions) (len :content this)) 1)
-    )
-    (constructor (str)
-        (set :content this str)
-        (set :name :header this (symbol "raw-text"))
-    )
-)
+#(defclass Text (Element TMLElement)
+#    (content "")
+#    (write (view redraw)
+#        (write view :content this)
+#    )
+#    (prefered-dims (dimensions)
+#        (dims (min (width dimensions) (len :content this)) 1)
+#    )
+#    (constructor (str)
+#        (set :content this str)
+#        (set :name :header this (symbol "raw-text"))
+#    )
+#)
 
 (defclass ExprElement (ElementBase Element)
     (content "")
@@ -163,7 +162,8 @@
         (setl :children this children)
     )
 )
-(setl idf-regex (regex "\\w|@"))
+#(setl idf-regex (regex "\\w|@"))
+(setl idf-regex (regex "[a-z]|[A-Z]|_|@"))
 (defun parse-idf-string (stream)
     (setl ret "")
     (while (not (eof stream))
@@ -342,6 +342,9 @@
         (index envir sym)))
     ret
 )
+(defmethod convert-child ((el Text_t))
+    `(append ,(get-dynamic child-list) ,el)
+)
 (defmethod convert-child ((el Element))
     (setl ret null)
     (setl atrs :attributes :header el)
@@ -355,7 +358,7 @@
             ,@(map convert-child :children el)
             (setl ,child-sym ,(get-dynamic child-list))
         )
-        ,(if (eq (type el) Text)
+        ,(if (eq (type el) Text_t)
             `(append ,(get-dynamic child-list) ,el)
            else if (eq (type el) ExprElement)
              (setl expr-sym (gensym))
@@ -378,58 +381,67 @@
 )
 (set child-list (dynamic (list )))
 (set expr-child-list (dynamic (list )))
+
+
+
+
+
 (defmethod convert-element ((el Element))
     (setl ret false)
     (setl atrs :attributes :header el)
     (setl extra-fields :extra-fields el)
-    (setl class-def 
-    `(defclass ,:name :header el (,TMLElement)
-        ,@(map _(list :0 _ :1 _) extra-fields)
-        (constructor ()
-            (setl current-params (dict))
-            (setl children (list))
-            ,@(map (lambda (atr) 
+    #(setl class-def 
+
+    (setl child-forms (map (lambda (atr) 
+                (setl param-symbol (symbol atr))
                 (if :mandatory ;atr atrs
-                    `(if (not (in ,atr current-params ))
-                        (error ,(+ "Missing mandatory attribute for " (str :name :header el) " '" atr "'"))
+                    `(progn 
+                         (if (not (in ,atr current-params ))
+                            (error ,(+ "Missing mandatory attribute for " (str :name :header el) " '" atr "'"))
+                         )
+                         (setl ,param-symbol (index current-params ,atr))
                      )
                  else
+                    (setl value-sym (gensym))
                     `(if (not (in ,atr current-params ))
-                        false
-                        (set (index current-params ,atr) ,:value ;atr atrs)
+                        (setl ,value-sym ,:value ;atr atrs)
+                        (set (index current-params ,atr) ,value-sym)
+                        (setl ,param-symbol ,value-sym)
+                     else
+                        (setl ,param-symbol (index current-params ,atr))
                      )
                 )
-                ) (keys :attributes :header el))
-            (let ((  (,(embed-dynamic child-list)) (list))  ((,(embed-dynamic expr-child-list)) (list)))
+                ) (keys :attributes :header el)))
+
+    (append child-forms 
+            `(let ((  (,(embed-dynamic child-list)) (list))  ((,(embed-dynamic expr-child-list)) (list)))
               ,@(map convert-child :children el)
               (,set-children this ,(get-dynamic child-list))
               (setl :expr-children this ,(get-dynamic expr-child-list))
+            ))
+
+    (setl field-assignments (map 
+                _(progn `(set (index this (quote ,:0 _)) ,:1 _)) 
+                (filter _(not (eq null :1 _)) extra-fields))
             )
+    #(print field-assignments)
+    `(defclass ,:name :header el (,TMLElement)
+        ,@(map _(list :0 _ null) extra-fields)
+        (constructor ()
+            (setl current-params (dict))
+            (setl children (list))
+            ,@child-forms
+            ,@field-assignments
             (update this)
         )
         (constructor (params children)
             (setl current-params (copy params))
             (setl children (list))
-            ,@(map (lambda (atr) 
-                (if :mandatory ;atr atrs
-                    `(if (not (in ,atr current-params ))
-                        (error ,(+ "Missing mandatory attribute for " (str :name :header el) " '" atr "'"))
-                     )
-                 else
-                    `(if (not (in ,atr current-params ))
-                        false
-                        (set (index current-params ,atr) ,:value ;atr atrs)
-                     )
-                )
-                ) (keys :attributes :header el))
-            (let ((  (,(embed-dynamic child-list)) (list))  ((,(embed-dynamic expr-child-list)) (list)))
-              ,@(map convert-child :children el)
-              (,set-children this ,(get-dynamic child-list))
-              (setl :expr-children this ,(get-dynamic expr-child-list))
-            )
+            ,@child-forms
+            ,@field-assignments
             (update this)
         )
-    ))
+    )
 )
 
 (defun parse-tml (stream)
