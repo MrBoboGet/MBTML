@@ -47,12 +47,15 @@
         (setl :children this children)
         (map _(set-parent-info _ :parent this) :children this)
     )
+    (add-child (child)
+        (set-parent-info child :parent this)
+        (append :children this child)
+    )
     (constructor (children)
         (setl :children this children)
     )
     (handle-input (input)
         (if (not (eq :input this null))
-            #(print "not null")
             (return (handle-input :input this input))
         )
         false
@@ -87,12 +90,15 @@
                 (write child (sub-view view height-offset 0) redraw)
             )
             (incr height-offset (height dimensions))
-            #(print height-offset)
             (incr current-offset (minus 0 1))
         )
     )
 
-
+    (set-focus (focused)
+        (if (eq (len :children this) 1)
+            (set-focus :0 :children this focused)
+        )
+    )
 
     (update ()
         (doit child :expr-children this
@@ -373,7 +379,9 @@
                 ,(if (eq field-name null)
                     `(,:name :header el ,attributes-sym ,child-sym  )
                   else
-                    `(set (index this (quote ,field-name)) (,:name :header el ,attributes-sym ,child-sym  ))
+                    `(progn 
+                        (set (index this (quote ,field-name)) (,:name :header el ,attributes-sym ,child-sym  ))
+                     )
                  )
              )
         )
@@ -424,7 +432,6 @@
                 _(progn `(set (index this (quote ,:0 _)) ,:1 _)) 
                 (filter _(not (eq null :1 _)) extra-fields))
             )
-    #(print field-assignments)
     `(defclass ,:name :header el (,TMLElement)
         ,@(map _(list :0 _ null) extra-fields)
         (constructor ()
