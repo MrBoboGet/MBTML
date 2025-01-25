@@ -1,9 +1,8 @@
 (import TML.TML)
 
+(setl test "bruh bruh bruh")
 
-
-
-
+(setl better-test "asdasd")
 
 @tml
 <suggestionContainer>
@@ -11,6 +10,7 @@
         <hider @hider  visible=false>
             @("> ")
         </hider>
+        @children
     </stacker>
 @text=""
 </suggestionContainer>
@@ -25,16 +25,14 @@
             asdasdasd
         </stacker>
     </absolute>
-    awoooga
-    <repl @input/></repl>
+    <stacker @testContainer>
+        awoooga
+    </stacker>
+    <repl @input/>
 
 @suggestions=suggestions
 
 </suggester>
-
-
-
-
 
 (defmethod get-text ((this suggestionContainer))
     :text this
@@ -42,12 +40,13 @@
 
 (defmethod get-suggestion-elements (elems)
     (map _(progn 
-            (setl content (Text _ (make-dict ("highlight-color" "yellow")))) 
-            (setl container (suggestionContainer))
-            (setl :text container _)
-            (add-child :content container content)
-            container
-        ) elems)
+            (setl text _)
+            @tml-emit
+            <suggestionContainer @text=text >
+                <Text content=text highlight-color="yellow"/>
+            </suggestionContainer>
+        ) 
+       elems)
 )
 
 (defmethod update-suggestions ((this suggester))
@@ -75,7 +74,6 @@
 )
 
 
-
 (defmethod handle-input ((this suggester) input)
     (if (eq input "up") 
         (handle-input :container this (create-input "k"))
@@ -94,6 +92,13 @@
             (set-line :input this (get-text selected))
             (update-suggestions this)
         )
+        #else if (|| (eq input "\n") (eq input "enter"))
+        #    (setl content "awooogers")
+        #    @tml-emit
+        #    <Text @newText content=content color="red"/>
+        #    (add-child :testContainer this 
+        #        newText
+        #    )
     else
         (handle-input :input this input)
         (update-suggestions this)

@@ -102,11 +102,12 @@
 
     (update ()
         (doit child :expr-children this
-            (set-value child (:expr child))
+            (update child)
         )
-        (set-updated this false)
+        (set-updated this true)
     )
 )
+
 
 
 (defclass Attribute ()
@@ -119,6 +120,8 @@
     (name 'null)
     (attributes (dict))
     (field-name null)
+    (assignments (list))
+    (closed false)
 )
 
 (defclass Element ()
@@ -140,6 +143,11 @@
 #    )
 #)
 
+(defclass ChildrenPlaceholder (ElementBase Element)
+    (constructor () 
+        null
+    )
+)
 (defclass ExprElement (ElementBase Element)
     (content "")
     (expr null)
@@ -149,6 +157,9 @@
     )
     (prefered-dims (dimensions)
         (dims (min (width dimensions) (len :content this)) 1)
+    )
+    (update ()
+        (set-value this (:expr this))
     )
     (set-value (new-value)
         (if (applicable str new-value)
@@ -161,6 +172,14 @@
     (constructor (expr)
         (set :expr this expr)
     )
+)
+
+
+(defmethod set-expr-children (this (children list_t))
+    null
+)
+(defmethod set-expr-children ((this TMLElement) (children list_t))
+    (setl :expr-children this children)
 )
 
 (defclass div (TMLElement)
@@ -205,6 +224,7 @@
     #assumes that it start on the byte after <
     (setl ret (Element))
     (set :header ret (parse-header stream))
+    (if :closed :header ret (return ret))
     (while (not (eof stream))
         #(setl text-content (read-until stream "<"))
         (setl text-content (read-regex stream content-regex))
@@ -241,6 +261,8 @@
                 (if (eq (peek-byte stream) "=")
                     (read-byte stream)
                     (append extra-fields (list idf (read-term stream)))
+                 else if (eq idf 'children)
+                    (append :children ret (ChildrenPlaceholder))
                  else 
                     (error (+ "Invalid character after extra field declaration: " (peek-byte stream)))
                 )
@@ -255,14 +277,15 @@
     (setl ret (Header))
     (set :name ret (parse-idf stream))
     (while (not (eof stream))
-        (setl atr (Attribute))
         (skip-whitespace stream)
+        (setl atr (Attribute))
         (if (eq (peek-byte stream) "/")
             (read-byte stream)
             (if (not (eq (peek-byte stream) ">"))
                 (error (+ "Invalid character after '/' in header: " (peek-byte stream)))
             )
             (read-byte stream)
+            (setl :closed ret true)
             (break)
         )
         (if (eq (peek-byte stream) ">")
@@ -277,11 +300,19 @@
             (error (+ "Invalid attribute character: " (peek-byte stream)))
         )
         (if (eq (substr name-str 0 1) "@")
-            (setl :field-name ret (symbol (substr name-str 1)))
+            #(setl :field-name ret (make-sym (substr name-str 1)))
+            (setl field-name (make-sym (substr name-str 1)))
+            (skip-whitespace stream)
+            (if (eq (peek-byte stream) "=")
+                (read-byte stream)
+                (setl value (read-term stream))
+                (append :assignments ret (list field-name value))
+                (continue)
+            )
+            (setl :field-name ret field-name)
             (if (not (eq name-str "@input"))
                 (append extra-fields (list :field-name ret null))
             )
-            (skip-whitespace stream)
             (continue)
         )
         (skip-whitespace stream)
@@ -294,17 +325,18 @@
                 (setl :value atr (parse-header-string stream))
                 (if (eq :value atr "true")
                     (set :value atr true)
-                    (setl :is-parameter-value atr false)
-                )
-                (if (eq :value atr "false")
+                else if (eq :value atr "false")
                     (set :value atr false)
-                    (setl :is-parameter-value atr false)
+                else 
+                    (setl :value atr (symbol :value atr))
                 )
              else 
-                (if (eq (peek-byte stream) "@") (read-byte stream))
+                #(if (eq (peek-byte stream) "@") (read-byte stream))
                 (setl :value atr (read-term stream))
                 (setl :is-parameter-value atr false)
             )
+            #(setl :value atr (read-term stream))
+            (setl :is-parameter-value atr false)
             (setl :mandatory atr false)
           else
             (setl :mandatory atr true)
@@ -348,20 +380,21 @@
         (index envir sym)))
     ret
 )
-(defmethod convert-child ((el Text_t))
+(defmethod convert-child ((el Text_t) emit)
     `(append ,(get-dynamic child-list) ,el)
 )
-(defmethod convert-child ((el Element))
+(defmethod convert-child ((el Element) (emit bool_t))
     (setl ret null)
     (setl atrs :attributes :header el)
     (setl attributes-sym (gensym))
     (setl child-sym (gensym))
+    (setl value-sym (gensym))
     (setl field-name :field-name :header el)
     `(progn 
         (setl ,attributes-sym 
             (make-dict ,@(map _(cond :is-parameter-value ;_ atrs `(,_ (index current-params ,_) ) `(,_ ,:value ;_ atrs )) (keys atrs)  )))
         (let (  ((,(embed-dynamic child-list)) (list)) )
-            ,@(map convert-child :children el)
+            ,@(map _(convert-child _ emit) :children el )
             (setl ,child-sym ,(get-dynamic child-list))
         )
         ,(if (eq (type el) Text_t)
@@ -373,15 +406,26 @@
                 (append ,(get-dynamic child-list) ,expr-sym)
                 (append ,(get-dynamic expr-child-list) ,expr-sym)
               )
+           else if (eq (type el) ChildrenPlaceholder)
+             `(insert-elements ,(get-dynamic child-list) children)
           else
-            `(append 
-                ,(get-dynamic child-list) 
-                ,(if (eq field-name null)
-                    `(,:name :header el ,attributes-sym ,child-sym  )
-                  else
-                    `(progn 
-                        (set (index this (quote ,field-name)) (,:name :header el ,attributes-sym ,child-sym  ))
-                     )
+            `(progn 
+               (setl ,value-sym 
+                    ,(if (eq field-name null)
+                        `(,:name :header el ,attributes-sym ,child-sym  )
+                      else
+                        `(progn 
+                            ,(cond emit
+                                `(setl ,field-name (,:name :header el ,attributes-sym ,child-sym  ))
+                                `(setl (index this (quote ,field-name)) (,:name :header el ,attributes-sym ,child-sym  ))
+                             )
+                         )
+                     ))
+                ,@(map _(progn `(set (index ,value-sym (quote ,:0 _))  ,:1 _  )) :assignments :header el)
+
+                 (append 
+                    ,(get-dynamic child-list) 
+                    ,value-sym
                  )
              )
         )
@@ -397,7 +441,7 @@
 (defmethod convert-element ((el Element))
     (setl ret false)
     (setl atrs :attributes :header el)
-    (setl extra-fields :extra-fields el)
+    (setl fields :extra-fields el)
     #(setl class-def 
 
     (setl child-forms (map (lambda (atr) 
@@ -423,17 +467,17 @@
 
     (append child-forms 
             `(let ((  (,(embed-dynamic child-list)) (list))  ((,(embed-dynamic expr-child-list)) (list)))
-              ,@(map convert-child :children el)
+              ,@(map _(convert-child _ false) :children el )
               (,set-children this ,(get-dynamic child-list))
-              (setl :expr-children this ,(get-dynamic expr-child-list))
+              (,set-expr-children this ,(get-dynamic expr-child-list))
             ))
 
     (setl field-assignments (map 
                 _(progn `(set (index this (quote ,:0 _)) ,:1 _)) 
-                (filter _(not (eq null :1 _)) extra-fields))
+                (filter _(not (eq null :1 _)) fields))
             )
     `(defclass ,:name :header el (,TMLElement)
-        ,@(map _(list :0 _ null) extra-fields)
+        ,@(map _(list :0 _ null) fields)
         (constructor ()
             (setl current-params (dict))
             (setl children (list))
@@ -443,7 +487,7 @@
         )
         (constructor (params children)
             (setl current-params (copy params))
-            (setl children (list))
+            #(setl children (list))
             ,@child-forms
             ,@field-assignments
             (update this)
@@ -466,6 +510,18 @@
 )
 (defun tml (stream)
     (convert-element (parse-tml stream))
+)
+(defun tml-emit (stream)
+    (setl parse-res (parse-tml stream))
+    (setl res-sym (gensym))
+    (setl child-forms 
+            `(let ((  (,(embed-dynamic child-list)) (list))  ((,(embed-dynamic expr-child-list)) (list)))
+              (setl ,res-sym null)
+              ,(convert-child parse-res true)
+              (setl ,res-sym  (index  ,(get-dynamic child-list) 0))
+              ,res-sym
+            ))
+    child-forms
 )
 #(set stream (open "TestMarkup.tml" "r")) 
 #(setl tml (parse-tml stream))
