@@ -173,6 +173,12 @@
         (set :expr this expr)
     )
 )
+(defclass CodeElement (ElementBase Element)
+    (statements (list))
+    (constructor (statements)
+        (set :statements this statements)
+    )
+)
 
 
 (defmethod set-expr-children (this (children list_t))
@@ -255,6 +261,16 @@
                     (setl new-expr :0 new-expr)
                 )
                 (append :children ret (ExprElement new-expr))
+            else if (eq (peek-byte stream) "{")
+                (read-byte stream)
+                (setl statements (list))
+                (while (&& (not (eof stream)) (not (eq (peek-byte stream) "}")))
+                    (append statements (read-term stream))
+                    (skip-whitespace stream)
+                )
+                (read-byte stream)
+                (append :children ret (CodeElement statements))
+                (setl testsetest 123)
             else
                 (setl idf (parse-idf stream))
                 (skip-whitespace stream)
@@ -408,6 +424,8 @@
               )
            else if (eq (type el) ChildrenPlaceholder)
              `(insert-elements ,(get-dynamic child-list) children)
+           else if (eq (type el) CodeElement)
+             `(progn ,@:statements el)
           else
             `(progn 
                (setl ,value-sym 
@@ -436,7 +454,7 @@
 
 
 (defmethod emit-child (child)
-    (append expr-child-list child)
+    (append child-list child)
 )
 
 
