@@ -435,7 +435,9 @@
 (set expr-child-list (dynamic (list )))
 
 
-
+(defmethod emit-child (child)
+    (append expr-child-list child)
+)
 
 
 (defmethod convert-element ((el Element))
@@ -514,20 +516,28 @@
 (defun tml-emit (stream)
     (setl parse-res (parse-tml stream))
     (setl res-sym (gensym))
+    (setl it-sym (gensym))
     (setl child-forms 
             `(let ((  (,(embed-dynamic child-list)) (list))  ((,(embed-dynamic expr-child-list)) (list)))
               (setl ,res-sym null)
               ,(convert-child parse-res true)
               (setl ,res-sym  (index  ,(get-dynamic child-list) 0))
+              (doit ,it-sym ,(get-dynamic expr-child-list)
+                (,update ,it-sym)
+              )
               ,res-sym
             ))
     child-forms
 )
-#(set stream (open "TestMarkup.tml" "r")) 
-#(setl tml (parse-tml stream))
-#(print (str tml)) 
-#(setl converted (convert-element tml))
-#(print converted)
-#(print (expand converted))
-#(eval converted)
-#(print (TestClass (make-dict ("Height" 12)) (list)))
+
+(defun display-window (window)
+    (setl term (terminal))
+    (clear term)
+    (write-window term window)
+    (while true
+        (setl new-input (get-input term))
+        (handle-input window new-input)
+        (write-window term window)
+    )
+)
+

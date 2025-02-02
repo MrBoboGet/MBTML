@@ -25,16 +25,12 @@
         )
     )
 )
+
+
+
 (if (not (eq latest-element null))
-    (setl term (terminal))
-    (clear term)
     (setl window (latest-element (dict) (list)))
-    (write-window term window)
-    (while true
-        (setl new-input (get-input term))
-        (handle-input window new-input)
-        (write-window term window)
-    )
+    (display-window window)
 )
 
 (error (+ "No TML element defined in file: " file))
