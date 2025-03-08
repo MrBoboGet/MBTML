@@ -104,3 +104,29 @@
         (update-suggestions this)
     )
 )
+
+
+@tml
+<placeholder>
+    @child = (Text "placeholder")
+</placeholder>
+
+(defmethod set-focus ((this placeholder) value)
+    (set-focus :child this value)
+)
+(defmethod get-cursor-info ((this placeholder))
+    (get-cursor-info :child this)
+)
+(defmethod prefered-dims ((this placeholder) dimensions)
+    (prefered-dims :child this dimensions)
+)
+(defmethod handle-input ((this placeholder) input)
+    (handle-input :child this input)
+)
+(defmethod write ((this placeholder) view redraw)
+    (write :child this view redraw)
+)
+(defmethod set-child ((this placeholder) child)
+    (setl :child this child)
+    (set-parent-info child :parent this)    
+)

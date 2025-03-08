@@ -4,6 +4,13 @@
 #Base for all lisp defined elements, 
 #default working as a stacker
 
+
+(defmacro embed-dynamic (sym &envir envir)
+    (setl ret (lambda () 
+        (index envir sym)))
+    ret
+)
+
 (defclass ElementBase ()
     (parent (new-updated-info))
 
@@ -26,7 +33,7 @@
         (updated :parent this)
     )
     (handle-input (input)
-        null
+        true
     )
     (write (view redraw)
         null
@@ -36,12 +43,33 @@
     )
 )
 
+(setl current-interaction-stack (dynamic null))
+(defmacro handle-base (this-expr input-expr)
+    (setl res-sym (gensym))
+    `(progn 
+        (if (not (,eq (index ,this-expr (quote input)) null))
+            (return (,handle-input (index ,this-expr (quote input)) ,input-expr))
+         else if (&& (,not (,eq (index ,this-expr (quote interaction-stack)) null)) (> (len (index ,this-expr (quote interaction-stack))) 0))
+            (let (( (,(embed-dynamic current-interaction-stack)) (index ,this-expr (quote interaction-stack)) ))
+                (setl ,res-sym (,handle-input (,index (,back ,(get-dynamic current-interaction-stack)) 'element) ,input-expr) )
+                (if (not ,res-sym)
+                    (,pop ,this-expr)
+                    (return true)
+                )
+                (return true)
+            )
+         else if (,eq ,input-expr "esc")
+            (return false)
+        )
+     )
+)
 
 (defclass TMLElement (ElementBase)
     (attributes (dict))
     (children (list))
     (expr-children (list))
     (input null)
+    (interaction-stack null)
 
     (set-children (children)
         (setl :children this children)
@@ -55,10 +83,11 @@
         (setl :children this children)
     )
     (handle-input (input)
-        (if (not (eq :input this null))
-            (return (handle-input :input this input))
-        )
-        false
+        #(if (not (eq :input this null))
+        #    (return (handle-input :input this input))
+        #)
+        (handle-base this input)
+        true
     )
     (get-cursor-info ()
         (if (not (eq :input this null))
@@ -109,6 +138,48 @@
 )
 
 
+(defclass interaction-element ()
+    (element null)
+    (pop-callback null)
+
+    (constructor (elem)
+        (setl :element this elem)
+    )
+    (constructor (elem callback)
+        (setl :element this elem)
+        (setl :pop-callback this callback)
+    )
+)
+
+(defmethod push ((this TMLElement) sub-element)
+    (if (not (eq current-interaction-stack null))
+        (append current-interaction-stack (interaction-element sub-element))
+     else
+        (set :interaction-stack this (list))
+        (append :interaction-stack this (interaction-element sub-element))
+    )
+)
+
+(defmethod push ((this TMLElement) sub-element callback)
+    (if (not (eq current-interaction-stack null))
+        (append current-interaction-stack (interaction-element sub-element callback))
+     else
+        (set :interaction-stack this (list))
+        (append :interaction-stack this (interaction-element sub-element callback))
+    )
+)
+
+(defmethod pop ((this TMLElement))
+    (if (&& (not (eq current-interaction-stack null)) (> (len current-interaction-stack) 0))
+        (setl top (pop current-interaction-stack))
+        (if (not (eq :pop-callback top null))
+            (:pop-callback top)
+        )
+    )
+)
+
+
+
 
 (defclass Attribute ()
     (name "")
@@ -141,7 +212,7 @@
 #        (set :content this str)
 #        (set :name :header this (symbol "raw-text"))
 #    )
-#)
+
 
 (defclass ChildrenPlaceholder (ElementBase Element)
     (constructor () 
@@ -389,11 +460,6 @@
 )
 (defmethod str ((el Element))
     (setl ret (str_impl el 0))
-    ret
-)
-(defmacro embed-dynamic (sym &envir envir)
-    (setl ret (lambda () 
-        (index envir sym)))
     ret
 )
 (defmethod convert-child ((el Text_t) emit)
