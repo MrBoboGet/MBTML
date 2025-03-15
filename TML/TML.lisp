@@ -20,6 +20,9 @@
     (set-children (children)
         null
     )
+    (clear-children ()
+        null
+    )
     (set-focus (value)
         null
     )
@@ -67,11 +70,20 @@
 (defclass TMLElement (ElementBase)
     (attributes (dict))
     (children (list))
+    (logical-children (list))
     (expr-children (list))
     (input null)
     (interaction-stack null)
 
+    (children ()
+        :logical-children this
+    )
+
     (set-children (children)
+        (setl :children this children)
+        (map _(set-parent-info _ :parent this) :children this)
+    )
+    (clear-children (children)
         (setl :children this children)
         (map _(set-parent-info _ :parent this) :children this)
     )
@@ -569,6 +581,7 @@
             (setl children (list))
             ,@child-forms
             ,@field-assignments
+            (set :logical-children this children)
             (update this)
         )
         (constructor (params children)
@@ -576,6 +589,7 @@
             #(setl children (list))
             ,@child-forms
             ,@field-assignments
+            (set :logical-children this children)
             (update this)
         )
     )
