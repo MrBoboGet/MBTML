@@ -19,7 +19,16 @@
     (set-atr :hider this "visible" focused)
 )
 @tml
-<suggester suggestions=(list "awooga" "slugma" "xxxddd")>
+<suggester 
+        suggestions=(list "awooga" "slugma" "xxxddd")
+        value-func=(lambda (x) x)
+        display-func=(lambda (x) @tml-emit <Text content=(str x) highlight-color="yellow" />)
+        on-changed = (lambda (x) null)
+        filter-func = (lambda (input suggestion) (&& (in input suggestion) (not (eq input suggestion))))
+    >
+    @{
+        null
+    }
     <absolute @top relative=true row-offset=0>
         <stacker border=true reversed=true @container>
             asdasdasd
@@ -29,21 +38,20 @@
         awoooga
     </stacker>
     <repl @input/>
-
-@suggestions=suggestions
-
 </suggester>
 
 (defmethod get-text ((this suggestionContainer))
     :text this
 )
-
-(defmethod get-suggestion-elements (elems)
+#<Text content=text highlight-color="yellow"/>
+(defmethod get-suggestion-elements ((this suggester) elems)
     (map _(progn 
             (setl text _)
             @tml-emit
             <suggestionContainer @text=text >
-                <Text content=text highlight-color="yellow"/>
+                @{
+                    (emit-child (:display-func this text))
+                }
             </suggestionContainer>
         ) 
        elems)
@@ -56,7 +64,7 @@
     (if (eq current-string "")
         false
      else if (eq (type suggestions) list_t)
-        (setl active-suggestions (filter _(&& (in current-string _) (not (eq current-string _))) suggestions))
+        (setl active-suggestions (filter _(:filter-func this current-string _) :suggestions this))
      else 
         (setl active-suggestions (suggestions current-string))
     )
@@ -65,7 +73,7 @@
     else
         (set-atr :top this "visible" true)
     )
-    (set-children :container this (get-suggestion-elements active-suggestions))
+    (set-children :container this (get-suggestion-elements this active-suggestions))
 )
 
 (defmethod set-suggestions ((this suggester) suggestions)
@@ -75,6 +83,7 @@
 
 
 (defmethod handle-input ((this suggester) input)
+    #(handle-base this input)
     (if (eq input "up") 
         (handle-input :container this (create-input "k"))
     else if (eq input "down")
@@ -105,7 +114,9 @@
     )
 )
 
-
+(defmethod get-value ((this suggester))
+    (get-line :input this)
+)
 @tml
 <placeholder>
     @child = (Text "placeholder")
@@ -130,3 +141,53 @@
     (setl :child this child)
     (set-parent-info child :parent this)    
 )
+
+#suggestions=(list "awooga" "slugma" "xxxddd")
+#value-func=(lambda (x) x)
+#display-func=(lambda (x) @tml-emit <Text content=(str x) highlight-color="yellow" />)
+#on-changed = (lambda (x) null)
+#filter-func = (lambda (input suggestion) (&& (in input suggestion) (not (eq input suggestion))))
+
+@tml
+<dropdown 
+        alternatives=(list "test test")
+        display-func? value-func? on-changed? filter-func? >
+    <hider @result-container visible=true >
+        <placeholder @result />
+    </hider>
+
+    <hider @input-container visible=true >
+        <suggester @content
+            suggestions=alternatives
+            display-func=display-func?
+            value-func=value-func?
+            on-changed=on-changed?
+            filter-func=filter-func?
+            />
+    </hider>
+    @{
+        :alternatives this
+    }
+</dropdown>
+
+(defmethod handle-input ((this dropdown) input)
+    (handle-input :content this input)
+    (if (|| (eq input "esc") (eq input "\t")) 
+        (set-child :result this (:display-func :content this (get-value :content this)))
+        (set-atr :input-container this "visible" false)
+        (set-atr :result-container this "visible" true)
+        (return false)
+    )
+    true
+)
+(defmethod set-focus ((this dropdown) is-focused)
+    (if is-focused  
+        (set-atr :input-container this "visible" true)
+        (set-atr :result-container this "visible" false)
+    else
+        (set-atr :input-container this "visible" false)
+        (set-atr :result-container this "visible" true)
+    )
+)
+
+

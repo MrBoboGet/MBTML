@@ -197,6 +197,7 @@
     (name "")
     (value null)
     (mandatory true)
+    (omittable false)
     (is-parameter-value true)
 )
 (defclass Header ()
@@ -290,7 +291,7 @@
     ret
 )
 
-(setl header-string-regex (regex "\\w|@|-"))
+(setl header-string-regex (regex "\\w|@|-|\\?"))
 (defun parse-header-string (stream)
     (setl ret "")
     (while (not (eof stream))
@@ -414,6 +415,12 @@
             )
             (continue)
         )
+        (if (&& (> (len name-str) 0) (eq :-1 name-str "?"))
+            (set :name atr (substr :name atr 0 (+ (len :name atr) -1)))
+            (setl :omittable atr true)
+            (setl :mandatory atr false)
+        )
+
         (skip-whitespace stream)
         (if (eq (peek-byte stream) "=")
             (read-byte stream)
@@ -424,8 +431,10 @@
                 (setl :value atr (parse-header-string stream))
                 (if (eq :value atr "true")
                     (set :value atr true)
+                    (setl :is-parameter-value atr false)
                 else if (eq :value atr "false")
                     (set :value atr false)
+                    (setl :is-parameter-value atr false)
                 else 
                     (setl :value atr (symbol :value atr))
                 )
@@ -435,9 +444,9 @@
                 (setl :is-parameter-value atr false)
             )
             #(setl :value atr (read-term stream))
-            (setl :is-parameter-value atr false)
+            #(setl :is-parameter-value atr false)
             (setl :mandatory atr false)
-          else
+          else if (not :omittable atr)
             (setl :mandatory atr true)
         )
         (set ;:name atr :attributes ret atr)
@@ -477,16 +486,39 @@
 (defmethod convert-child ((el Text_t) emit)
     `(append ,(get-dynamic child-list) ,el)
 )
+#(setl ,attributes-sym 
+#    (,make-dict ,@(map _(cond :is-parameter-value ;_ atrs `(,_ (index current-params ,_) ) `(,_ ,:value ;_ atrs )) (keys atrs)  )))
 (defmethod convert-child ((el Element) (emit bool_t))
     (setl ret null)
     (setl atrs :attributes :header el)
     (setl attributes-sym (gensym))
     (setl child-sym (gensym))
     (setl value-sym (gensym))
+    (setl dict-sym (gensym))
     (setl field-name :field-name :header el)
     `(progn 
         (setl ,attributes-sym 
-            (make-dict ,@(map _(cond :is-parameter-value ;_ atrs `(,_ (index current-params ,_) ) `(,_ ,:value ;_ atrs )) (keys atrs)  )))
+            (progn 
+                (setl ,dict-sym (dict)) 
+                ,@(map _(cond :is-parameter-value ;_ atrs 
+                    (if (eq :-1 (str :value ;_ atrs) "?")
+                       (setl supplied-name (str :value ;_ atrs))
+                       (setl real-name (substr supplied-name 0 (+ (len supplied-name) -1)))
+                       `(if (in ,real-name current-params) 
+                            (setl (index ,dict-sym ,real-name) (index current-params ,real-name))
+                        )
+                    else
+                        `(setl (index ,dict-sym ,_) (index current-params ,(str :value ;_ atrs)))
+                    )
+                        `(setl (index ,dict-sym ,_) ,:value ;_ atrs )
+                    )
+
+                        (keys atrs)  
+
+                  )
+                  ,dict-sym
+            )
+        )
         (let (  ((,(embed-dynamic child-list)) (list)) )
             ,@(map _(convert-child _ emit) :children el )
             (setl ,child-sym ,(get-dynamic child-list))
@@ -539,8 +571,9 @@
 (defmethod convert-element ((el Element))
     (setl ret false)
     (setl atrs :attributes :header el)
-    (setl fields :extra-fields el)
+    (setl fields (copy :extra-fields el))
     #(setl class-def 
+    (insert-elements fields (map _(list (symbol _) null) (keys :attributes :header el)))
 
     (setl child-forms (map (lambda (atr) 
                 (setl param-symbol (symbol atr))
@@ -555,10 +588,12 @@
                     (setl value-sym (gensym))
                     `(if (not (in ,atr current-params ))
                         (setl ,value-sym ,:value ;atr atrs)
-                        (set (index current-params ,atr) ,value-sym)
+                        ,(if (not :omittable ;atr atrs) `(set (index current-params ,atr) ,value-sym) )
                         (setl ,param-symbol ,value-sym)
+                        (setl (index this (quote ,param-symbol) ) ,value-sym)
                      else
                         (setl ,param-symbol (index current-params ,atr))
+                        (setl (index this (quote ,param-symbol) ) (index current-params ,atr))
                      )
                 )
                 ) (keys :attributes :header el)))
