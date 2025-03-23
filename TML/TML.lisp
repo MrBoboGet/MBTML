@@ -138,6 +138,8 @@
     (set-focus (focused)
         (if (eq (len :children this) 1)
             (set-focus :0 :children this focused)
+         else if (not (eq :input this null))
+            (set-focus :input this focused)
         )
     )
 
@@ -667,6 +669,7 @@
     (setl term (terminal))
     (clear term)
     (write-window term window)
+    (set-focus window true)
     (while true
         (setl new-input (get-input term))
         (handle-input window new-input)
