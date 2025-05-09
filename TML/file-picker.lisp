@@ -38,7 +38,6 @@
         (setl selected-file (get-selected :content this))
         (if (not (eq selected-file null))
             (setl path :path selected-file)
-            (print path)
             (if (is-directory path)
                 (change-dir this path)
              else 

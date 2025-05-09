@@ -207,6 +207,28 @@
     )
 )
 
+@tml
+<button on-enter=(lambda () (print "slugma")) >
+    <stacker @input  border=true highlight-color="green">
+        @children
+    </stacker>
+</button>
+
+(defmethod handle-input ((this button) input)
+    (if (eq input "enter")
+        (:on-enter this)
+        (return false)
+    )
+    true
+)
+(defmethod set-focus ((this button) focus)
+    (if focus 
+        (set-atr :input this "border-color" "green")
+    else
+        (set-atr :input this "border-color" "white")
+    )
+)
+
 #(setl value @tml-emit <Text />)
 #(display-window @tml-emit <dropdown value="asdasd" />)
 #(print @tml-emit <Text />)
