@@ -466,6 +466,20 @@
     )
     ret
 )
+(defmethod str_impl ((el Text_t) depth)
+    (setl padding (str-mul "    " depth))
+    (setl ret (copy padding))
+    (append ret "$Text")
+    ret
+)
+(defmethod str_impl (el depth)
+    (setl padding (str-mul "    " depth))
+    (setl ret (copy padding))
+    (append ret "$?")
+    ret
+)
+
+
 (defmethod str ((el Element))
     (setl ret (str_impl el 0))
     ret

@@ -209,7 +209,7 @@
 
 @tml
 <button on-enter=(lambda () (print "slugma")) >
-    <stacker @input  border=true highlight-color="green">
+    <stacker @input  border=true highlight-color="green" >
         @children
     </stacker>
 </button>
