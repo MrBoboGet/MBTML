@@ -208,8 +208,8 @@
 )
 
 @tml
-<button on-enter=(lambda () (print "slugma")) >
-    <stacker @input  border=true highlight-color="green" >
+<button on-enter=(lambda () (print "slugma")) border=false>
+    <stacker @input  border=border highlight-color="green" >
         @children
     </stacker>
 </button>
@@ -223,9 +223,17 @@
 )
 (defmethod set-focus ((this button) focus)
     (if focus 
-        (set-atr :input this "border-color" "green")
+        (if :border this
+            (set-atr :input this "border-color" "green")
+         else
+            (set-atr :input this "bg-color" "green")
+        )
     else
-        (set-atr :input this "border-color" "white")
+        (if :border this
+            (set-atr :input this "border-color" "white")
+        else
+            (set-atr :input this "bg-color" "white")
+        )
     )
 )
 
