@@ -18,7 +18,7 @@
     directory=(cwd) 
     on-pick=(lambda (path) null)
     >
-    <stacker border=true @content>
+    <stacker border=true width=width? height=20 @content justification="end" overflow=false >
 
     </stacker>
     @{
@@ -30,6 +30,7 @@
 (defmethod change-dir ((this filePicker) dir)
     (setl :directory this dir)
     (set-children :content this (map _(progn @tml-emit <dirEntry path=(path-append :directory this _) />) (list-dir :directory this))) 
+    (set-selected-index :content this 0)
 )
 
 (defmethod handle-input ((this filePicker) input)
@@ -45,7 +46,7 @@
                 (return false)
             )
         )
-     else if (eq input "u")
+     else if (|| (eq input "u") (eq input "backspace"))
             (change-dir this (parent-path :directory this))
      else
         (return (handle-input :content this input))
