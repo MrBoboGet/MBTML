@@ -672,8 +672,11 @@
     (write-window term window)
     (set-focus window true)
     (while true
-        (setl new-input (get-input term))
-        (handle-input window new-input)
+        #(setl new-input (get-input term))
+        (setl new-event (get-event term))
+        (if (is (type new-event) input_t)
+            (handle-input window new-event)
+        )
         (write-window term window)
     )
 )
