@@ -501,7 +501,7 @@
         (setl ,attributes-sym 
             (progn 
                 (setl ,dict-sym (dict)) 
-                ,@(map _(cond :is-parameter-value ;_ atrs 
+                ,@(map _(cond (&& :is-parameter-value ;_ atrs (not emit))
                     (if (eq :-1 (str :value ;_ atrs) "?")
                        (setl supplied-name (str :value ;_ atrs))
                        (setl real-name (substr supplied-name 0 (+ (len supplied-name) -1)))
