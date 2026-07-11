@@ -611,13 +611,13 @@
                 (filter _(not (eq null :1 _)) fields))
             )
     `(defclass ,:name :header el (,TMLElement)
-        ,@(map _(list :0 _ null) fields)
+        ,@(map _(list :0 _ :1 _) fields)
         (constructor ()
             (set-parent-info (index this (quote stacker_)) (index this (quote parent)))
             (setl current-params (dict))
             (setl children (list))
             ,@child-forms
-            ,@field-assignments
+            #,@field-assignments
             (set :logical-children this children)
             (update this)
         )
@@ -626,7 +626,7 @@
             (setl current-params (copy params))
             #(setl children (list))
             ,@child-forms
-            ,@field-assignments
+            #,@field-assignments
             (set :logical-children this children)
             (update this)
         )

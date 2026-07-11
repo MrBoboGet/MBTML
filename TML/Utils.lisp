@@ -119,7 +119,12 @@
 )
 @tml
 <placeholder>
-    @child = (Text "placeholder")
+    @child = null
+    @{
+        (if (eq (len children) 1)
+            (set-child this :0 children)
+        )
+    }
 </placeholder>
 
 (defmethod set-focus ((this placeholder) value)

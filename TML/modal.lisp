@@ -27,6 +27,3 @@
 (defmethod set-window ((mod modal) base-window new-window)
     (set-window mod base-window new-window _(progn null))
 )
-(defmethod window-active ((mod modal))
-    (set-window mod base-window new-window _(progn null))
-)
