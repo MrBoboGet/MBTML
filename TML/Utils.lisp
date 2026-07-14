@@ -146,6 +146,9 @@
     (setl :child this child)
     (set-parent-info child :parent this)    
 )
+(defmethod set-visible ((this placeholder) value)
+    (set-base-atr this "visible" value)
+)
 
 #suggestions=(list "awooga" "slugma" "xxxddd")
 #value-func=(lambda (x) x)

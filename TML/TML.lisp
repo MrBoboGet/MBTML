@@ -120,6 +120,10 @@
         (write :stacker_ this view redraw)
     )
 
+    (set-base-atr (name value)
+        (set-atr :stacker_ this name value)
+    )
+
     (set-focus (focused)
         (if (eq (len :children this) 1)
             (set-focus :0 :children this focused)
