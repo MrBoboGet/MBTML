@@ -1,5 +1,7 @@
 (import "TML.lisp")
 (import "modal.lisp")
+(import "divider.lisp")
+(import "Utils.lisp")
 
 @tml 
 <dirEntry path="" >
@@ -16,18 +18,29 @@
 @tml
 <filePicker 
     directory=(cwd) 
+    warn-replace=false
+    width?
+    height?
     on-pick=(lambda (path) null)
     >
-    <stacker border=true width=width? height=height? @content justification="end" overflow=false >
+    @{
+        (set-base-atr this "border" true)
+    }
+    @(:directory this)
+    <divider/>
+    <stacker width=width? height=height? @content justification="end" overflow=false >
 
     </stacker>
     @{
         (change-dir this directory)
     }
-    <modal @mod row-offset=1 col-offset=1 width=-2 relative=true>
+    <modal @mod row-offset=0 col-offset=0 relative=true>
 
     </modal>
 
+    <modal @warning orientation="center" relative=true >
+
+    </modal>
     @entries = (list)
 </filePicker>
 
@@ -65,6 +78,7 @@
     (set :entries this entries)
     (set-children :content this (map _(progn @tml-emit <dirEntry path=(path-append :directory this _) />) entries) )
     (set-selected-index :content this 0)
+    (update this)
 )
 
 (defun file-completion (tokens)
@@ -83,6 +97,30 @@
     (list)
 )
 
+@tml
+<warningModal parent-elem=null path="" callback=(progn _(progn null))>
+    <stacker border=true>
+        <Text content=(+ path " already exists. Select anyway?") />
+        <stacker @input justification="evenly" width="16" direction="right" passthrough="enter"  reversed=true >
+            <button on-enter=callback >
+                <Text content="yes" />
+            </button>
+            <button on-enter=(lambda () (pop parent-elem)) input-res=true>
+                <Text content="no" />
+            </button>
+        </stacker>
+    </stacker >
+</warningModal>
+
+(defmethod pick-file ((this filePicker) path)
+   (if (&& :warn-replace this (exists path))
+       (set-window :warning this this @tml-emit <warningModal path=path parent-elem=this callback=(progn _(:on-pick this path))> </warningModal> _(progn null) true)
+        (return true)
+      else
+      (:on-pick this path)
+      (return false)
+   )
+)
 (defmethod handle-input ((this filePicker) input)
     (if (eq input "esc")
         (apply-filter this "")
@@ -95,12 +133,9 @@
             (if (is-directory path)
                 (change-dir this path)
              else 
-                (:on-pick this path)
-                (return false)
+                (return (pick-file this path))
             )
         )
-     else if (|| (eq input "u") (eq input "backspace"))
-            (change-dir this (parent-path :directory this))
      else if (|| (eq input "u") (eq input "backspace"))
             (change-dir this (parent-path :directory this))
      else if (eq input "/")
@@ -110,13 +145,23 @@
                     onenter=(progn _(apply-filter this _))
                 />
             )
+     else if (eq input "n")
+            (setl file-res "")
+            (set-window :mod this this 
+                @tml-emit
+                <repl oneshot=true
+                    onenter=(progn _(setl file-res (+ :directory this "/" _)))
+                />
+                _(progn (pick-file this file-res))
+                true
+            )
      else if (ctrl input  "o")
             (set-window :mod this this 
                 @tml-emit
                 <repl oneshot=true
                     completion=(progn file-completion)
                     onenter=(progn 
-                            _(if (is-file _)
+                            _(if (is-file  _)
                                 (:on-pick this _)
                                 (pop this)
                             )

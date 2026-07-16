@@ -1,4 +1,4 @@
-(import TML.TML)
+(import "TML.lisp")
 
 (setl test "bruh bruh bruh")
 
@@ -70,8 +70,7 @@
         (set-atr :top this "visible" false)
     else
         (set-atr :top this "visible" true)
-    )
-    (set-children :container this (get-suggestion-elements this active-suggestions))
+    ) (set-children :container this (get-suggestion-elements this active-suggestions))
 )
 
 (defmethod set-suggestions ((this suggester) suggestions)
@@ -216,7 +215,7 @@
 )
 
 @tml
-<button on-enter=(lambda () (print "slugma")) border=false>
+<button on-enter=(lambda () (print "slugma")) border=false input-res=false >
     <stacker @input  border=border highlight-color="green" >
         @children
     </stacker>
@@ -225,7 +224,7 @@
 (defmethod handle-input ((this button) input)
     (if (eq input "enter")
         (:on-enter this)
-        (return false)
+        (return :input-res this)
     )
     true
 )

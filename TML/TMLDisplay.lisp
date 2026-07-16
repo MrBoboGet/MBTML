@@ -1,4 +1,4 @@
-(import tml)
+(import TML)
 #(import tml tml-scope)
 
 #(setl argv (list "TestMarkup.lisp"))
@@ -12,12 +12,13 @@
 #(eval converted new-scope)
 (eval `(load ,file) new-scope)
 
-
 (setl highest-position (minus 0 1))
 (setl latest-element null)
 (doit key (vars new-scope)
     (setl current-value ;key new-scope)
-    (if (&& (eq (type current-value) type_t) (is current-value TMLElement))
+    (if (&& (eq (type current-value) type_t) (is current-value :TMLElement new-scope))
+        (print "current contender")
+        (print key)
         (setl current-position (position (name current-value)))
         (if (< highest-position current-position)
             (setl highest-position current-position)

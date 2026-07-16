@@ -13,6 +13,17 @@
     </absolute>
 </modal>
 
+(defmethod set-window ((mod modal) base-window new-window callable replaces-input)
+    (set-atr :window mod "visible" true)
+    (set-child :window mod new-window)
+    (push base-window new-window 
+        _(progn
+            (set-atr :window mod "visible" false)
+            (callable)
+        )
+        replaces-input
+   )
+)
 (defmethod set-window ((mod modal) base-window new-window callable)
     (set-atr :window mod "visible" true)
     (set-child :window mod new-window)
