@@ -25,16 +25,19 @@
     >
     @{
         (set-base-atr this "border" true)
+        (set-base-atr this "width" width)
+        (set-base-atr this "height" height)
+        (set-base-atr this "justification" "end")
     }
     @(:directory this)
     <divider/>
-    <stacker width=width? height=height? @content justification="end" overflow=false >
+    <stacker  @content justification="end" overflow=false >
 
     </stacker>
     @{
         (change-dir this directory)
     }
-    <modal @mod row-offset=0 col-offset=0 relative=true>
+    <modal @mod row-offset=-1 col-offset=0 relative=true>
 
     </modal>
 
@@ -153,7 +156,7 @@
                     onenter=(progn _(setl file-res (+ :directory this "/" _)))
                 />
                 _(progn (pick-file this file-res))
-                true
+                false
             )
      else if (ctrl input  "o")
             (set-window :mod this this 
