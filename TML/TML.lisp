@@ -623,6 +623,7 @@
               ,@(map _(convert-child _ false) :children el )
               (,set-children this ,(get-dynamic child-list))
               (,set-expr-children this ,(get-dynamic expr-child-list))
+              (setl :children this children)
             ))
 
     (setl field-assignments (map 
